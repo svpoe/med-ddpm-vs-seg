@@ -57,12 +57,12 @@ class NiftiPairImageGenerator(Dataset):
     def __init__(self,
             input_folder: str,
             target_folder1: str,
-            target_folder2: str,
-            target_folder3: str,
-            target_folder4: str,
+            # target_folder2: str,
+            # target_folder3: str,
+            # target_folder4: str,
             input_size: int,
             depth_size: int,
-            input_channel: int = 8, #num_class_labels in train.py, 3 in in dataset.py
+            input_channel: int = 4, #3 (one-hot encoding) + 1 (T1)
             transform=None,
             target_transform=None,
             full_channel_mask=False,
@@ -70,9 +70,9 @@ class NiftiPairImageGenerator(Dataset):
         ):
         self.input_folder = input_folder
         self.target_folder1 = target_folder1
-        self.target_folder2 = target_folder2
-        self.target_folder3 = target_folder3
-        self.target_folder4 = target_folder4
+        # self.target_folder2 = target_folder2
+        # self.target_folder3 = target_folder3
+        # self.target_folder4 = target_folder4
         self.pair_files = self.pair_file()
         self.input_size = input_size
         self.depth_size = depth_size
@@ -86,43 +86,43 @@ class NiftiPairImageGenerator(Dataset):
     def pair_file(self): 
         input_files = sorted(glob(os.path.join(self.input_folder, '*')))
         target_files1 = sorted(glob(os.path.join(self.target_folder1, '*')))
-        target_files2 = sorted(glob(os.path.join(self.target_folder2, '*')))
-        target_files3 = sorted(glob(os.path.join(self.target_folder3, '*')))
-        target_files4 = sorted(glob(os.path.join(self.target_folder4, '*')))
+        # target_files2 = sorted(glob(os.path.join(self.target_folder2, '*')))
+        # target_files3 = sorted(glob(os.path.join(self.target_folder3, '*')))
+        # target_files4 = sorted(glob(os.path.join(self.target_folder4, '*')))
         pairs = []
-        for (input_file, target_file1, target_file2, target_file3, target_file4) in zip(input_files, target_files1, target_files2, target_files3, target_files4):
+        for (input_file, target_file1) in zip(input_files, target_files1):
 #             assert int("".join(re.findall("\d", input_file))) == int("".join(re.findall("\d", target_file1))) and int("".join(re.findall("\d", input_file))) == int("".join(re.findall("\d", target_file2))) and int("".join(re.findall("\d", input_file))) == int("".join(re.findall("\d", target_file3))) and int("".join(re.findall("\d", input_file))) == int("".join(re.findall("\d", target_file4)))
-            pairs.append((input_file, target_file1, target_file2, target_file3, target_file4))
+            pairs.append((input_file, target_file1))
         return pairs
 
-    #not called
-    def label2value(self, masked_img):
-        result_img = masked_img.copy()
-        result_img[result_img==LabelEnum.BACKGROUND.value] = 0.0
-        result_img[result_img==LabelEnum.TUMORAREA1.value] = 0.25
-        result_img[result_img==LabelEnum.TUMORAREA2.value] = 0.5
-        result_img[result_img==LabelEnum.TUMORAREA3.value] = 0.75
-        result_img[result_img==LabelEnum.BRAINAREA.value] = 1.0
-        #result_img = self.scaler.fit_transform(result_img.reshape(-1, result_img.shape[-1])).reshape(result_img.shape)
-        return result_img
+    # #not called
+    # def label2value(self, masked_img):
+    #     result_img = masked_img.copy()
+    #     result_img[result_img==LabelEnum.BACKGROUND.value] = 0.0
+    #     result_img[result_img==LabelEnum.TUMORAREA1.value] = 0.25
+    #     result_img[result_img==LabelEnum.TUMORAREA2.value] = 0.5
+    #     result_img[result_img==LabelEnum.TUMORAREA3.value] = 0.75
+    #     result_img[result_img==LabelEnum.BRAINAREA.value] = 1.0
+    #     #result_img = self.scaler.fit_transform(result_img.reshape(-1, result_img.shape[-1])).reshape(result_img.shape)
+    #     return result_img
 
     #called in getitem
     def label2masks(self, masked_img):
         result_img = np.zeros(masked_img.shape + (4,))   # ( (H, W, D) + (2,)  =  (H, W, D, 2)  -> (B, 2, H, W, D))
-        result_img[masked_img==LabelEnum.TUMORAREA1.value, 0] = 1
-        result_img[masked_img==LabelEnum.TUMORAREA2.value, 1] = 1
-        result_img[masked_img==LabelEnum.TUMORAREA3.value, 2] = 1
-        result_img[masked_img==LabelEnum.BRAINAREA.value, 3] = 1
+        result_img[masked_img==LabelEnum.TUMORAREA.value, 0] = 1
+        # result_img[masked_img==LabelEnum.TUMORAREA2.value, 1] = 1
+        # result_img[masked_img==LabelEnum.TUMORAREA3.value, 2] = 1
+        result_img[masked_img==LabelEnum.BRAINAREA.value, 1] = 1
         return result_img
 
-    #not called
-    def combine_mask_channels(self, masks): # masks: (2, H, W, D), 2->mask channels
-        result_img = np.zeros(masks.shape[1:])
-        result_img += LabelEnum.TUMORAREA1.value * masks[0]
-        result_img += LabelEnum.TUMORAREA2.value * masks[1]
-        result_img += LabelEnum.TUMORAREA3.value * masks[2]
-        result_img += LabelEnum.BRAINAREA.value * masks[3]
-        return result_img
+    # #not called
+    # def combine_mask_channels(self, masks): # masks: (2, H, W, D), 2->mask channels
+    #     result_img = np.zeros(masks.shape[1:])
+    #     result_img += LabelEnum.TUMORAREA1.value * masks[0]
+    #     result_img += LabelEnum.TUMORAREA2.value * masks[1]
+    #     result_img += LabelEnum.TUMORAREA3.value * masks[2]
+    #     result_img += LabelEnum.BRAINAREA.value * masks[3]
+    #     return result_img
 
     #loads nifti returns numpy array
     #called in getitem
@@ -135,7 +135,7 @@ class NiftiPairImageGenerator(Dataset):
     def plot(self, index, n_slice=30):
         data = self[index]
         input_img = data['input']
-        target_img = data['target']
+        target_img1 = data['target']
         plt.subplot(1, 2, 1)
         plt.imshow(input_img[:, :, n_slice])
         plt.subplot(1, 2, 2)
@@ -154,6 +154,7 @@ class NiftiPairImageGenerator(Dataset):
     def resize_img_4d(self, input_img):
         h, w, d, c = input_img.shape
         result_img = np.zeros((self.input_size, self.input_size, self.depth_size, 2))
+        #result_img = np.zeros((self.input_size, self.input_size, self.depth_size, c)
         if h != self.input_size or w != self.input_size or d != self.depth_size:
             for ch in range(c):
                 buff = input_img.copy()[..., ch]
@@ -182,7 +183,7 @@ class NiftiPairImageGenerator(Dataset):
         return len(self.pair_files)
 
     def __getitem__(self, index):
-        input_file, target_file1, target_file2, target_file3, target_file4 = self.pair_files[index]
+        input_file, target_file1 = self.pair_files[index]
         input_img = self.read_image(input_file)
         input_img = self.label2masks(input_img) if self.full_channel_mask else input_img
         input_img = self.resize_img(input_img) if not self.full_channel_mask else self.resize_img_4d(input_img)
@@ -190,23 +191,23 @@ class NiftiPairImageGenerator(Dataset):
         target_img1 = self.read_image(target_file1)
         target_img1 = self.resize_img(target_img1)
         
-        target_img2 = self.read_image(target_file2)
-        target_img2 = self.resize_img(target_img2)
+        # target_img2 = self.read_image(target_file2)
+        # target_img2 = self.resize_img(target_img2)
         
-        target_img3 = self.read_image(target_file3)
-        target_img3 = self.resize_img(target_img3)
+        # target_img3 = self.read_image(target_file3)
+        # target_img3 = self.resize_img(target_img3)
         
-        target_img4 = self.read_image(target_file4)
-        target_img4 = self.resize_img(target_img4)
-        
-        target_img = np.stack([target_img1, target_img2, target_img3, target_img4], axis=3)
+        # target_img4 = self.read_image(target_file4)
+        # target_img4 = self.resize_img(target_img4)
+
+        target_img = np.stack([target_img1], axis=3)
 
         if self.transform is not None:
             input_img = self.transform(input_img)
         if self.target_transform is not None:
-            target_img = self.transform(target_img)
+            target_img1 = self.transform(target_img)
 
         if self.combine_output:
-            return torch.cat([target_img, input_img], 0)
+            return torch.cat([target_img1, input_img], 0)
 
-        return {'input':input_img, 'target':target_img}
+        return {'input':input_img, 'target':target_img1}
