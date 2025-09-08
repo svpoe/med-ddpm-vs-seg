@@ -11,6 +11,13 @@ import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID" 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 # -
+if torch.backends.mps.is_available():
+    device = "mps"     # Apple GPU
+elif torch.cuda.is_available():
+    device = "cuda"    # NVIDIA GPU
+else:
+    device = "cpu"
+    print("WARNING: using CPU")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--inputfolder', type=str, default="dataset/mask/")
@@ -80,7 +87,7 @@ in_channels = num_class_labels if with_condition else 1
 out_channels = 1
 
 
-model = create_model(input_size, num_channels, num_res_blocks, in_channels=in_channels, out_channels=out_channels).cuda()
+model = create_model(input_size, num_channels, num_res_blocks, in_channels=in_channels, out_channels=out_channels).to(device)
 
 diffusion = GaussianDiffusion(
     model,
@@ -90,10 +97,10 @@ diffusion = GaussianDiffusion(
     loss_type = 'l1',    # L1 or L2
     with_condition=with_condition,
     channels=out_channels
-).cuda()
+).to(device)
 
 if len(resume_weight) > 0:
-    weight = torch.load(resume_weight, map_location='cuda')
+    weight = torch.load(resume_weight, map_location=device)
     diffusion.load_state_dict(weight['ema'])
     print("Model Loaded!")
 

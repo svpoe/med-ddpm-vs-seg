@@ -40,7 +40,36 @@ num_res_blocks = args.num_res_blocks
 num_samples = args.num_samples
 in_channels = args.num_class_labels
 out_channels = 1
-device = "cuda"
+# device = "cuda"
+# if torch.backends.mps.is_available():
+#         # Release device memory if available
+#     if device == "cuda":
+#         torch.cuda.empty_cache()
+#     elif device == "mps":
+#         torch.mps.empty_cache()
+#     # No action needed for CPU    # Release device memory if available
+#     if device == "cuda":
+#         torch.cuda.empty_cache()
+#     elif device == "mps":
+#         torch.mps.empty_cache()
+#     # No action needed for CPUdevice = "mps"     # Apple GPU
+# elif torch.cuda.is_available():
+#     device = "cuda"    # NVIDIA GPU
+# else:
+#     device = "cpu"
+#     print("WARNING: using CPU")# ...existing imports...
+
+# Device selection
+if torch.backends.mps.is_available():
+    device = "mps"     # Apple GPU
+    print("Using MPS device")
+elif torch.cuda.is_available():
+    device = "cuda"    # NVIDIA GPU
+else:
+    device = "cpu"
+    print("WARNING: using CPU")
+
+# ...rest of your code...
 
 mask_list = sorted(glob.glob(f"{inputfolder}/*.nii.gz"))
 print(len(mask_list))
@@ -75,7 +104,7 @@ input_transform = Compose([
     Lambda(lambda t: t.transpose(4, 2))
 ])
 
-model = create_model(input_size, num_channels, num_res_blocks, in_channels=in_channels, out_channels=out_channels).cuda()
+model = create_model(input_size, num_channels, num_res_blocks, in_channels=in_channels, out_channels=out_channels).to(device)
 
 
 diffusion = GaussianDiffusion(
@@ -85,8 +114,11 @@ diffusion = GaussianDiffusion(
     timesteps = args.timesteps,   # number of steps
     loss_type = 'L1', 
     with_condition=True,
-).cuda()
-diffusion.load_state_dict(torch.load(weightfile)['ema'])
+).to(device)
+checkpoint = torch.load(weightfile, map_location=torch.device("mps"))  # or "cpu" if not using MPS
+diffusion.load_state_dict(checkpoint['ema'])
+
+# diffusion.load_state_dict(torch.load(weightfile)['ema'])
 print("Model Loaded!")
 
 # +
@@ -97,7 +129,12 @@ os.makedirs(msk_dir, exist_ok=True)
 
 for k, inputfile in enumerate(mask_list):
     left = len(mask_list) - (k+1)
-    print("LEFT: ", left)
+    print("LEFT: ", left)    # Release device memory if available
+    if device == "cuda":
+        torch.cuda.empty_cache()
+    # elif device == "mps":
+    #     torch.mps.empty_cache()
+    # No action needed for CPU
     ref = nib.load(inputfile)
     msk_name = inputfile.split('/')[-1]
     refImg = ref.get_fdata()
@@ -119,7 +156,7 @@ for k, inputfile in enumerate(mask_list):
             counted_samples.append(sample_count)
             sample_count += 1
 
-        condition_tensors = torch.cat(condition_tensors, 0).cuda()
+        condition_tensors = torch.cat(condition_tensors, 0).to(device)
         all_images_list = list(map(lambda n: diffusion.sample(batch_size=n, condition_tensors=condition_tensors), [bsize]))
         all_images = torch.cat(all_images_list, dim=0)
         all_images = all_images.unsqueeze(1)
@@ -134,5 +171,14 @@ for k, inputfile in enumerate(mask_list):
             nifti_img = nib.Nifti1Image(sampleImage, affine=ref.affine)
             nib.save(nifti_img, os.path.join(img_dir, f'{counter}_{msk_name}'))
             nib.save(ref, os.path.join(msk_dir, f'{counter}_{msk_name}'))
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()    
+                    # Release GPU memory if available
+        # if device == "cuda":
+        #     torch.cuda.empty_cache()
+        # elif device == "mps":
+        #     torch.mps.empty_cache()
+
+        if torch.cuda.is_available(): #torch.mps.empty_cache() function doesn’t exist
+            torch.cuda.empty_cache()
+
     print("OK!")
