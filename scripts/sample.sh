@@ -1,1 +1,1 @@
-python ../sample.py --inputfolder ../dataset/vs_seg/mask --exportfolder ../exports/ --input_size 128 --depth_size 128 --num_channels 64 --num_res_blocks 1 --batchsize 1 --num_samples 1 --weightfile ../model/model_128.pt
+python ../sample.py --inputfolder ../dataset/whole_head/mask --exportfolder ../exports/ --input_size 128 --depth_size 128 --num_channels 64 --num_res_blocks 1 --batchsize 1 --num_samples 1 --weightfile ../model/model_128.pt
